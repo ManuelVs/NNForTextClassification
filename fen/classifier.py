@@ -1,11 +1,25 @@
 import tensorflow as tf
 
+
 class Classifier:
 
-    def __init__(self, model):
-        self.model        = model
-        num_classes       = model.output.shape[1].value
-        self.input_labels = tf.placeholder(tf.float32, [None, num_classes])
+    def __init__(self, model, input_length, output_length):
+        self.model = model
+        self.input_length = input_length
+        self.output_length = output_length
+
+    def compile(self, batch_size=32):
+        self._ds_x = tf.placeholder(tf.float32, [None, self.input_length])
+        self._ds_y = tf.placeholder(tf.float32, [None, self.output_length])
+
+        ds = tf.data.Dataset.from_tensor_slices((self._ds_x, self._ds_y))
+        ds = ds.batch(batch_size)
+
+        self._ds_it = ds.make_initializable_iterator()
+        self._input, self._labels = self._ds_it.get_next()
+
+        self._features = self.model(self._input)
+        self._output = _create_dense_layer(self._features, self.output_length)
 
         self._create_acc_computations()
         self._create_backpropagation()
@@ -14,98 +28,127 @@ class Classifier:
         self.session.run(tf.global_variables_initializer())
         self.session.run(tf.local_variables_initializer())
 
-
     def _create_acc_computations(self):
-        self.predictions  = tf.argmax(self.model.output, 1)
-        labels            = tf.argmax(self.input_labels, 1)
-        self.accuracy     = tf.reduce_mean(tf.cast(tf.equal(self.predictions, labels), 'float32'))
-    
+        self.predictions = tf.argmax(self._output, 1)
+        labels = tf.argmax(self._labels, 1)
+        self.accuracy = tf.reduce_mean(
+            tf.cast(tf.equal(self.predictions, labels), 'float32'))
 
     def _create_backpropagation(self):
         losses = tf.nn.softmax_cross_entropy_with_logits_v2(
-            logits=self.model.output,
-            labels=self.input_labels)
+            logits=self._output,
+            labels=self._labels)
         self.loss = tf.reduce_mean(losses)
 
         optimizer = tf.train.AdamOptimizer(0.001)
         global_step = tf.Variable(0, name="global_step", trainable=False)
         grads_and_vars = optimizer.compute_gradients(self.loss)
 
-        self.train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
+        self.train_op = optimizer.apply_gradients(
+            grads_and_vars, global_step=global_step)
 
-    def train(self, X_train, y_train, X_eval, y_eval, epochs=10, batch_size=32):
+    def summary(self):
+        print('input:', self._input.shape)
+        self.model.summary()
+        print('output:', self._output.shape)
+
+    def train(self, X_train, y_train, X_eval, y_eval, epochs=10):
         import time
 
         for e in range(epochs):
             start_time = time.time()
-            loss, acc = self._train(X_train, y_train, batch_size)
+            loss, acc = self._train(X_train, y_train)
             duration = time.time() - start_time
 
             val_loss, val_acc = self._eval(X_eval, y_eval)
 
-            output = 'Epoch: {}, loss = {:.4f}, acc = {:.4f}, val_loss = {:.4f}, val_acc = {:.4f}, Time = {:.2f}s' 
+            output = 'Epoch: {}, loss = {:.4f}, acc = {:.4f}, val_loss = {:.4f}, val_acc = {:.4f}, Time = {:.2f}s'
             print(output.format(e + 1, loss, acc, val_loss, val_acc, duration))
-        #endfor
+        # endfor
 
-    def _train(self, X_train, y_train, batch_size):
+    def _train(self, X_train, y_train):
         import numpy as np
-        dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-        dataset = dataset.batch(batch_size)
 
-        iterator = dataset.make_initializable_iterator()
-        next_element = iterator.get_next()
-
-        self.session.run(iterator.initializer)
+        self.session.run(
+            fetches=self._ds_it.initializer,
+            feed_dict={
+                self._ds_x: X_train,
+                self._ds_y: y_train
+            })
         loss, acc, = [], []
         while True:
             try:
-                x_batch, y_batch = self.session.run(next_element)
-                
                 _, vloss, vacc = self.session.run(
-                    fetches=[self.train_op, self.loss, self.accuracy],
-                    feed_dict={
-                        self.model.input : x_batch,
-                        self.input_labels: y_batch
-                    })
+                    fetches=[self.train_op, self.loss, self.accuracy])
 
                 loss.append(vloss)
                 acc.append(vacc)
             except tf.errors.OutOfRangeError:
                 break
-        #endwhile
+        # endwhile
 
         loss, acc = np.mean(loss), np.mean(acc)
         return loss, acc
 
-    def _eval(self, x_batch, y_batch):
-        loss, acc = self.session.run(
-            fetches=[self.loss, self.accuracy],
+    def _eval(self, X_val, y_val):
+        self.session.run(
+            fetches=self._ds_it.initializer,
             feed_dict={
-                self.model.input  : x_batch,
-                self.input_labels : y_batch,
-            }
-        )
+                self._ds_x: X_val,
+                self._ds_y: y_val
+            })
 
-        return loss, acc
+        loss, acc, = 0, 0
+        while True:
+            try:
+                l, vloss, vacc = self.session.run(
+                    fetches=[self._labels, self.loss, self.accuracy])
+
+                loss += vloss * len(l)
+                acc += vacc * len(l)
+            except tf.errors.OutOfRangeError:
+                break
+
+        return loss / len(X_val), acc / len(X_val)
 
     def predict(self, X):
-        y_hat = self._predict(
-            x_batch=X
-        )
+        import numpy as np
 
-        return y_hat
+        self.session.run(self._ds_it.initializer,
+                         feed_dict={
+                             self._ds_x: X,
+                             self._ds_y: np.empty((len(X), self.output_length))
+                         }
+                         )
 
-    def _predict(self, x_batch):
-        feed_dict = {
-            self.model.input : x_batch,
-        }
+        pred = list()
+        while True:
+            try:
+                ppred = self.session.run(tf.nn.softmax(self._output))
 
-        y_hat = self.session.run(
-            fetches=[self.predictions],
-            feed_dict=feed_dict
-        )
+                pred.extend(map(lambda l: l.tolist(), ppred))
+            except tf.errors.OutOfRangeError:
+                break
 
-        return y_hat
+        return pred
+
+
+def _create_dense_layer(x, output_length):
+    '''Creates a dense layer
+    '''
+    input_size = x.shape[1].value
+    W = tf.Variable(
+        initial_value=tf.truncated_normal(
+            shape=[input_size, output_length],
+            stddev=0.1))
+    b = tf.Variable(
+        initial_value=tf.truncated_normal(
+            shape=[output_length]))
+
+    dense = tf.nn.xw_plus_b(x, W, b)
+
+    return dense
+
 
 if __name__ == '__main__':
     pass

@@ -1,39 +1,43 @@
 import tensorflow as tf
 
+
 class ShinContextualModel:
 
-    '''Constructor.
-    Parameters:
-      sentence_length: Length of all sentences
-      embedding: numpy array representing the embedding. The first row (word) must be 0
-    '''
-    def __init__(self, sentence_length, embedding, num_classes, conv_size = 3, num_layers = 2):
-        self.input     = tf.placeholder('int32', [None, sentence_length])
+    def __init__(self, embedding, conv_size=3, num_layers=2):
+        '''Constructor.
+        Parameters:
+        sentence_length: Length of all sentences
+        embedding: numpy array representing the embedding. The first row (word) must be 0
+        '''
+        self._embedding = embedding
+        self._conv_size = conv_size
+        self._num_layers = num_layers
 
-        embedding_tf   = self._create_embedding_layer(embedding, self.input)
-        convolution_tf = self._create_convolutional_layers(conv_size, num_layers, embedding_tf)
-        pooling_tf     = self._create_maxpooling_layer(convolution_tf)
-        dense_tf       = self._create_dense_layer(num_classes, pooling_tf)
-        self.output    = dense_tf
+    def __call__(self, input):
+        self._embedding_tf = self._create_embedding_layer(
+            self._embedding, input)
+        self._convolution_tf = self._create_convolutional_layers(
+            self._conv_size, self._num_layers, self._embedding_tf)
+        self._pooling_tf = self._create_maxpooling_layer(self._convolution_tf)
 
-        print('input    : ' + str(self.input.shape))
-        print('embedding: ' + str(embedding_tf.shape))
-        print('conv     : ' + str(convolution_tf.shape))
-        print('pool     : ' + str(pooling_tf.shape))
-        print('output   : ' + str(self.output.shape))
+        return self._pooling_tf
 
+    def summary(self):
+        print('embedding:', str(self._embedding_tf.shape))
+        print('conv:', str(self._convolution_tf.shape))
+        print('pool:', str(self._pooling_tf.shape))
 
     def _create_embedding_layer(self, embedding, input_x):
         embedding = tf.Variable(initial_value=embedding)
-        
-        embedded_chars = tf.nn.embedding_lookup(embedding, input_x)
+
+        embedded_chars = tf.nn.embedding_lookup(
+            embedding, tf.cast(input_x, 'int32'))
 
         return embedded_chars
-    
 
     def _create_convolutional_layers(self, conv_size, num_layers, embedding):
         filter_height = conv_size
-        filter_width  = embedding.shape[2].value
+        filter_width = embedding.shape[2].value
 
         filter_shape = [filter_height, filter_width, filter_width]
 
@@ -44,7 +48,7 @@ class ShinContextualModel:
         b = tf.Variable(
             initial_value=tf.truncated_normal(
                 shape=[filter_width]))
-        
+
         z = embedding
         for _ in range(num_layers):
             conv = tf.nn.conv1d(
@@ -56,7 +60,7 @@ class ShinContextualModel:
             c = tf.nn.relu(bias)
 
             d = tf.nn.dropout(c, 0.75)
-            #Add BatchNormalization or LocalResponseNormalization
+            # Add BatchNormalization or LocalResponseNormalization
             e = tf.expand_dims(d, 1)
 
             z = tf.nn.local_response_normalization(
@@ -67,13 +71,11 @@ class ShinContextualModel:
                 beta=0.75
             )
             z = tf.squeeze(z, 1)
-
-        #endfor
-
+        # endfor
         return z
 
     def _create_maxpooling_layer(self, convolution):
-        conv_size      = convolution.shape[1].value
+        conv_size = convolution.shape[1].value
         embedding_size = convolution.shape[2].value
 
         convolution = tf.expand_dims(convolution, -1)
@@ -82,21 +84,6 @@ class ShinContextualModel:
             ksize=[1, conv_size, 1, 1],
             strides=[1, 1, 1, 1],
             padding='VALID')
-        
+
         flat = tf.reshape(pooled, [-1, embedding_size])
         return flat
-
-
-    def _create_dense_layer(self, num_classes, flatten_input):
-        input_size = flatten_input.shape[1].value
-        W = tf.Variable(
-            initial_value=tf.truncated_normal(
-                shape=[input_size, num_classes],
-                stddev=0.1))
-        b = tf.Variable(
-            initial_value=tf.truncated_normal(
-                shape=[num_classes]))
-
-        dense = tf.nn.xw_plus_b(flatten_input, W, b)
-
-        return dense

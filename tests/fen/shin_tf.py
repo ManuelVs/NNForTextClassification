@@ -15,23 +15,28 @@ if __name__ == '__main__':
         (X_train, y_train), (X_eval, y_eval) = pickle.load(f)
     with open(filePathWord2vec, 'rb') as file:
         word_vector = np.load(file)
-    
+
     word_vector = word_vector.astype('float32')
     sentence_length = X_train[0].shape[0]
-    num_classes     = y_train[0].shape[0]
+    num_classes = y_train[0].shape[0]
 
     model = ShinContextualModel(
-        sentence_length=sentence_length,
-        embedding=word_vector,
-        num_classes=num_classes)
-    
-    classifier = Classifier(model)
+        embedding=word_vector)
 
+    classifier = Classifier(
+        model=model,
+        input_length=sentence_length,
+        output_length=num_classes)
+
+    classifier.compile(batch_size=32)
+    classifier.summary()
     classifier.train(
         X_train=X_train,
         y_train=y_train,
         X_eval=X_eval,
         y_eval=y_eval,
-        epochs=20,
-        batch_size=32
+        epochs=20
     )
+
+    print("Predictions:", classifier.predict(X_train[0:2]))
+    print("Real:", y_train[0:2])
