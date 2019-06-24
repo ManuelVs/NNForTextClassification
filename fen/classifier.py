@@ -24,27 +24,27 @@ class Classifier:
         self._create_acc_computations()
         self._create_backpropagation()
 
-        self.session = tf.Session()
-        self.session.run(tf.global_variables_initializer())
-        self.session.run(tf.local_variables_initializer())
+        self._session = tf.Session()
+        self._session.run(tf.global_variables_initializer())
+        self._session.run(tf.local_variables_initializer())
 
     def _create_acc_computations(self):
-        self.predictions = tf.argmax(self._output, 1)
+        self._predictions = tf.argmax(self._output, 1)
         labels = tf.argmax(self._labels, 1)
-        self.accuracy = tf.reduce_mean(
-            tf.cast(tf.equal(self.predictions, labels), 'float32'))
+        self._accuracy = tf.reduce_mean(
+            tf.cast(tf.equal(self._predictions, labels), 'float32'))
 
     def _create_backpropagation(self):
         losses = tf.nn.softmax_cross_entropy_with_logits_v2(
             logits=self._output,
             labels=self._labels)
-        self.loss = tf.reduce_mean(losses)
+        self._loss = tf.reduce_mean(losses)
 
         optimizer = tf.train.AdamOptimizer(0.001)
         global_step = tf.Variable(0, name="global_step", trainable=False)
-        grads_and_vars = optimizer.compute_gradients(self.loss)
+        grads_and_vars = optimizer.compute_gradients(self._loss)
 
-        self.train_op = optimizer.apply_gradients(
+        self._train_op = optimizer.apply_gradients(
             grads_and_vars, global_step=global_step)
 
     def summary(self):
@@ -69,7 +69,7 @@ class Classifier:
     def _train(self, X_train, y_train):
         import numpy as np
 
-        self.session.run(
+        self._session.run(
             fetches=self._ds_it.initializer,
             feed_dict={
                 self._ds_x: X_train,
@@ -78,8 +78,8 @@ class Classifier:
         loss, acc, = [], []
         while True:
             try:
-                _, vloss, vacc = self.session.run(
-                    fetches=[self.train_op, self.loss, self.accuracy])
+                _, vloss, vacc = self._session.run(
+                    fetches=[self._train_op, self._loss, self._accuracy])
 
                 loss.append(vloss)
                 acc.append(vacc)
@@ -91,7 +91,7 @@ class Classifier:
         return loss, acc
 
     def _eval(self, X_val, y_val):
-        self.session.run(
+        self._session.run(
             fetches=self._ds_it.initializer,
             feed_dict={
                 self._ds_x: X_val,
@@ -101,8 +101,8 @@ class Classifier:
         loss, acc, = 0, 0
         while True:
             try:
-                l, vloss, vacc = self.session.run(
-                    fetches=[self._labels, self.loss, self.accuracy])
+                l, vloss, vacc = self._session.run(
+                    fetches=[self._labels, self._loss, self._accuracy])
 
                 loss += vloss * len(l)
                 acc += vacc * len(l)
@@ -114,7 +114,7 @@ class Classifier:
     def predict(self, X):
         import numpy as np
 
-        self.session.run(self._ds_it.initializer,
+        self._session.run(self._ds_it.initializer,
                          feed_dict={
                              self._ds_x: X,
                              self._ds_y: np.empty((len(X), self.output_length))
@@ -124,14 +124,13 @@ class Classifier:
         pred = list()
         while True:
             try:
-                ppred = self.session.run(tf.nn.softmax(self._output))
+                ppred = self._session.run(tf.nn.softmax(self._output))
 
                 pred.extend(map(lambda l: l.tolist(), ppred))
             except tf.errors.OutOfRangeError:
                 break
 
         return pred
-
 
 def _create_dense_layer(x, output_length):
     '''Creates a dense layer
