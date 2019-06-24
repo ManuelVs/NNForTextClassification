@@ -2,12 +2,16 @@ import tensorflow as tf
 
 
 class ShinContextualModel:
-
+    '''
+    Implementation proposal of: http://milab.snu.ac.kr/pub/BigComp2018.pdf
+    '''
     def __init__(self, embedding, conv_size=3, num_layers=2):
         '''Constructor.
         Parameters:
-        sentence_length: Length of all sentences
-        embedding: numpy array representing the embedding. The first row (word) must be 0
+            embedding: numpy array representing the embedding.
+            conv_size: Size of the convolutions. Number of words that takes each
+                convolution step.
+            num_layers: Number of recurrent convolutions.
         '''
         self._embedding = embedding
         self._conv_size = conv_size
@@ -87,3 +91,21 @@ class ShinContextualModel:
 
         flat = tf.reshape(pooled, [-1, embedding_size])
         return flat
+
+
+if __name__ == '__main__':
+    embedding_size  = 300
+    num_words       = 1000
+    sentence_length = 10
+
+    embedding = [
+        [float(i) for i in range(embedding_size)] for _ in range(num_words)
+    ]
+    data = [
+        [i     for i in range(sentence_length)],
+        [i + 1 for i in range(sentence_length)]
+    ]
+
+    model = ShinContextualModel(embedding)
+    model(data)
+    model.summary()

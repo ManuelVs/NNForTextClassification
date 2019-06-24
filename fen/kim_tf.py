@@ -2,14 +2,18 @@ import tensorflow as tf
 
 
 class KimConvolutionalModel:
-
+    '''
+    Implementation proposal of: https://arxiv.org/pdf/1408.5882.pdf
+    '''
     def __init__(self,
                  embedding,
                  conv_configurations=[(3, 100), (4, 100), (5, 100)]):
         '''Constructor.
         Parameters:
-          sentence_length: Length of all sentences
-          embedding: numpy array representing the embedding. The first row (word) must be 0
+            embedding: numpy array representing the embedding.
+            conv_configurations: List of pairs. Each pair represents a
+                convolution configuration. Each configuration determines the
+                size and number of each filter.
         '''
 
         self._embedding = embedding
@@ -126,3 +130,21 @@ class KimConvolutionalModel:
         num_filters_total = concatenate_input.shape[3].value
         flat = tf.reshape(concatenate_input, [-1, num_filters_total])
         return flat
+
+
+if __name__ == '__main__':
+    embedding_size  = 300
+    num_words       = 1000
+    sentence_length = 10
+
+    embedding = [
+        [float(i) for i in range(embedding_size)] for _ in range(num_words)
+    ]
+    data = [
+        [i     for i in range(sentence_length)],
+        [i + 1 for i in range(sentence_length)]
+    ]
+
+    model = KimConvolutionalModel(embedding)
+    model(data)
+    model.summary()
