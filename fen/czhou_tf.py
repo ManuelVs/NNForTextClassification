@@ -11,12 +11,12 @@ class ZhouCLSTMModel:
         drop_rate    = 0.5,
         lstm_units   = 150):
         '''Constructor.
-        Parameters:
-            conv_size: Size of the convolutions. Number of words that takes each
-                convolution step.
-            conv_filters: Number of convolution filters.
-            drop_rate: Drop rate for the final output of the LSTM layer.
-            lstm_units: Size of the states of the LSTM layer.
+        # Parameters:
+        conv_size: Size of the convolutions. Number of words that takes each
+            convolution step.
+        conv_filters: Number of convolution filters.
+        drop_rate: Drop rate for the final output of the LSTM layer.
+        lstm_units: Size of the states of the LSTM layer.
         '''
         self._embedding    = embedding
         self._conv_size    = conv_size

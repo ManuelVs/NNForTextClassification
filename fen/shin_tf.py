@@ -7,11 +7,11 @@ class ShinContextualModel:
     '''
     def __init__(self, embedding, conv_size=3, num_layers=2):
         '''Constructor.
-        Parameters:
-            embedding: numpy array representing the embedding.
-            conv_size: Size of the convolutions. Number of words that takes each
-                convolution step.
-            num_layers: Number of recurrent convolutions.
+        # Parameters:
+        embedding: numpy array representing the embedding.
+        conv_size: Size of the convolutions. Number of words that takes each
+            convolution step.
+        num_layers: Number of recurrent convolutions.
         '''
         self._embedding = embedding
         self._conv_size = conv_size

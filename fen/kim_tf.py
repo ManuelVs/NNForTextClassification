@@ -9,11 +9,11 @@ class KimConvolutionalModel:
                  embedding,
                  conv_configurations=[(3, 100), (4, 100), (5, 100)]):
         '''Constructor.
-        Parameters:
-            embedding: numpy array representing the embedding.
-            conv_configurations: List of pairs. Each pair represents a
-                convolution configuration. Each configuration determines the
-                size and number of each filter.
+        # Parameters:
+        embedding: numpy array representing the embedding.
+        conv_configurations: List of pairs. Each pair represents a
+            convolution configuration. Each configuration determines the
+            size and number of each filter.
         '''
 
         self._embedding = embedding
@@ -43,10 +43,12 @@ class KimConvolutionalModel:
 
     def _create_embedding_layer(self, embedding_array, input_x):
         '''Creates the embedding.
-        Parameters:
-        embedding_array: Array representing the embedding, used for initialization. Numpy array or Tensorflow tensor
-        input_x: Preceding tensorflow node. It should be the sentence(s) represented with word index
-        Returns:
+        # Parameters:
+        embedding_array: Array representing the embedding, used for
+            initialization. Numpy array or Tensorflow tensor
+        input_x: Preceding tensorflow node. It should be the sentence(s)
+            represented with word index
+        # Returns:
         Tensorflow node that computes the new representation
         '''
         embedding = tf.Variable(
@@ -61,9 +63,10 @@ class KimConvolutionalModel:
 
     def _create_convolutional_layers(self, configuration, input_embedding):
         '''Creates the convolutional layers.
-        Parameters:
-        configuration: A list. It must be of the form [(filter_size, num_filters), ...]
-        Returns:
+        # Parameters:
+        configuration: A list. It must be of the form
+            [(filter_size, num_filters), ...]
+        # Returns:
         A list of tensorflow nodes. Each node 'i' computes the configuration 'i'.
         '''
         convolutions = []
@@ -93,9 +96,9 @@ class KimConvolutionalModel:
 
     def _create_maxpooling_layer(self, input_convolutions):
         '''Creates the maxpooling layer. Computes maxpooling on each node
-        Parameters:
+        # Parameters:
         input_convolutions: List of tensorflow nodes.
-        Returns:
+        # Returns:
         A list of tensorflow nodes. Each node 'i' computes the maxpooling of node 'i'
         '''
         pooling = []
@@ -113,9 +116,9 @@ class KimConvolutionalModel:
 
     def _create_concatenate_layer(self, input_poolings):
         '''Creates the concatenation layer. Computes the concatenations of all tensors
-        Parameters:
+        # Parameters:
         input_poolings: List of tensorflow nodes.
-        Returns:
+        # Returns:
         A tensorflow node that computes the concatenations of all tensors
         '''
         conc = tf.concat(
