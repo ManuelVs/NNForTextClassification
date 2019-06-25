@@ -1,4 +1,1 @@
 tensorflow
-keras
-numpy
-matplotlib
