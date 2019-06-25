@@ -2,7 +2,7 @@
 
 ## /data
 
-- data.pickle: Datos del TREC guardados en el formato pickle.
+- data.pickle: Datos del TREC-6 guardados en el formato pickle.
   (Xtrain, ytrain), (Xtest, ytest)
 - word2vec.npz: Un embedding creado con word2vec. Es una matriz numpy.
 - Xavier.npz: Un embedding inicializado aleatoriamente con la
@@ -14,11 +14,13 @@ Modelos implementados usando exclusivamente tensorflow.
 Existe una clase 'Classifier', que engloba un modelo, es capaz de
 entrenarlo y sacar estadísticas.
 
-Actualmente solo hay 3 modelos implementados
-- Kim CNN: Basado en el modelo <https://arxiv.org/pdf/1408.5882.pdf>.
-- Shin CCNN: Basado en el modelo <https://ieeexplore.ieee.org/document/8367159>.
-- LSTM: Un modelo utilizando celdas LSTM, simplemente de pruebas.
+Actualmente hay 5 modelos implementados
+- Yoon Kim, CNN: Basado en el modelo <https://arxiv.org/pdf/1408.5882.pdf>.
+- Joongbo Shin, C-CNN: Basado en el modelo <http://milab.snu.ac.kr/pub/BigComp2018.pdf>.
+- Chunting Zhou, C-LSTM: Basado en el modelo <https://arxiv.org/pdf/1511.08630>.
+- Rui Zhang, LSTM-CNN: Basado en el modelo <https://arxiv.org/pdf/1611.02361.pdf>.
+- LSTM: Un modelo simple utilizando celdas LSTM, simplemente de pruebas.
 
 ## /tests
 
-Ejemplos de uso de esta biblioteca.
+Ejemplos de uso de esta biblioteca, además de pequeños tests.
