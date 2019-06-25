@@ -1,4 +1,4 @@
-# Repositorio de pruebas en ML y DL
+# Repositorio de pruebas en ML y DL para clasificación de texto
 
 ## /data
 
