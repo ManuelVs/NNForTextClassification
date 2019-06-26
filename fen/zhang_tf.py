@@ -25,7 +25,7 @@ class ZhangDependencyModel:
         ]
 
         self._sequences_tf = [
-            self._create_lstm_layers(embedding, 'lstm' + str(i))
+            self._create_lstm_layer(embedding, 'lstm' + str(i))
             for i, embedding in enumerate(self._embeddings_tf)
         ]
 
@@ -45,7 +45,6 @@ class ZhangDependencyModel:
         print("lstm: " + str(self._reshaped.shape))
         print("conv: " + str(self._convolution.shape))
         print("pooling: " + str(self._pooling.shape))
-        pass
 
     def _create_embedding_layer(self, embedding, input_x):
         embedding = tf.Variable(initial_value=embedding)
@@ -55,7 +54,7 @@ class ZhangDependencyModel:
 
         return embedded_chars
 
-    def _create_lstm_layers(self, embedding, scope):
+    def _create_lstm_layer(self, embedding, scope):
         lstm_units = embedding.shape[2]
 
         lstm_cell = tf.nn.rnn_cell.LSTMCell(lstm_units)
