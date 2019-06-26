@@ -18,7 +18,11 @@ if __name__ == '__main__':
     sentence_length = X_train[0].shape[0]
     num_classes = y_train[0].shape[0]
 
-    model = KimConvolutionalModel(embedding=word_vector)
+    model = KimConvolutionalModel(
+        embeddings_configuration=[
+            (word_vector, True)
+        ]
+    )
 
     classifier = Classifier(
         model=model,

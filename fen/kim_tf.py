@@ -6,60 +6,64 @@ class KimConvolutionalModel:
     Implementation proposal of: https://arxiv.org/pdf/1408.5882.pdf
     '''
     def __init__(self,
-                 embedding,
-                 conv_configurations=[(3, 100), (4, 100), (5, 100)]):
+        embeddings_configuration,
+        conv_configurations = [(3, 100), (4, 100), (5, 100)],
+        drop_rate           = 0.5):
         '''Constructor.
         # Parameters:
-        embedding: numpy array representing the embedding.
+        embeddings: List of embeddings configuration. Each configuration is a
+            pair of the form (embedding, trainable). `embedding` is a numpy
+            array and `trainable` is a boolean that indicates whether that
+            embedding is trainable or not.
         conv_configurations: List of pairs. Each pair represents a
             convolution configuration. Each configuration determines the
             size and number of each filter.
         '''
 
-        self._embedding = embedding
+        self._embeddings_configuration = embeddings_configuration
         self._conv_configurations = conv_configurations
+        self._drop_rate = drop_rate
 
     def __call__(self, input):
-        self._embedding_tf = self._create_embedding_layer(
-            self._embedding, input)
-        self._convolutions_tf = self._create_convolutional_layers(
-            self._conv_configurations, self._embedding_tf)
-        self._poolings_tf = self._create_maxpooling_layer(
-            self._convolutions_tf)
-        self._concatenate_tf = self._create_concatenate_layer(
-            self._poolings_tf)
-        self._flatten_tf = self._create_flatten_layer(self._concatenate_tf)
+        self._embeddings_tf = tf.stack(
+            values = [
+                self._create_embedding_layer(e, input)
+                for e in self._embeddings_configuration],
+            axis = 1
+        )
 
-        return self._flatten_tf
+        self._convolutions_tf = self._create_convolutional_layers(
+            self._conv_configurations, self._embeddings_tf)
+        
+        self._add_tf = self._create_add_layers(self._convolutions_tf)
+
+        self._poolings_tf = self._create_maxpooling_layer(
+            self._add_tf)
+
+        self._reshape_tf = self._create_reshape_layer(self._poolings_tf)
+        self._dropout_tf = tf.nn.dropout(
+            self._reshape_tf,
+            rate = self._drop_rate)
+
+        return self._dropout_tf
 
     def summary(self):
-        print('embedding:', str(self._embedding_tf.shape))
+        print('embedding:', str(self._embeddings_tf.shape))
         for c in self._convolutions_tf:
             print('conv:', str(c.shape))
+        for a in self._add_tf:
+            print('add:', str(a.shape))
         for p in self._poolings_tf:
             print('pool:', str(p.shape))
-        print('concat:', str(self._concatenate_tf.shape))
-        print('features:', str(self._flatten_tf.shape))
+        print('reshape:', str(self._reshape_tf.shape))
 
-    def _create_embedding_layer(self, embedding_array, input_x):
-        '''Creates the embedding.
-        # Parameters:
-        embedding_array: Array representing the embedding, used for
-            initialization. Numpy array or Tensorflow tensor
-        input_x: Preceding tensorflow node. It should be the sentence(s)
-            represented with word index
-        # Returns:
-        Tensorflow node that computes the new representation
-        '''
-        embedding = tf.Variable(
-            initial_value=embedding_array,
-            name="embedding")
-
-        embedded_chars = tf.nn.embedding_lookup(
-            embedding, tf.cast(input_x, 'int32'))
-        embedded_chars_expanded = tf.expand_dims(embedded_chars, -1)
-
-        return embedded_chars_expanded
+    def _create_embedding_layer(self, embedding_configuration, input_x):
+        return tf.nn.embedding_lookup(
+            params = tf.Variable(
+                initial_value = embedding_configuration[0],
+                trainable     = embedding_configuration[1]),
+            ids = tf.cast(input_x, 'int32')
+        )
 
     def _create_convolutional_layers(self, configuration, input_embedding):
         '''Creates the convolutional layers.
@@ -70,9 +74,9 @@ class KimConvolutionalModel:
         A list of tensorflow nodes. Each node 'i' computes the configuration 'i'.
         '''
         convolutions = []
-        for (filter_height, num_filters) in configuration:
-            filter_width = input_embedding.shape[2].value
-            filter_shape = [filter_height, filter_width, 1, num_filters]
+        for filter_height, num_filters in configuration:
+            filter_width = input_embedding.shape[3].value
+            filter_shape = [1, filter_height, filter_width, num_filters]
 
             # Create weights and bias
             W = tf.Variable(
@@ -94,45 +98,38 @@ class KimConvolutionalModel:
 
         return convolutions
 
-    def _create_maxpooling_layer(self, input_convolutions):
+    def _create_add_layers(self, convolutions):
+        return [
+            tf.reduce_sum(
+                input_tensor = c,
+                axis=1,
+                keepdims=True)
+            for c in convolutions
+        ]
+
+    def _create_maxpooling_layer(self, tensors):
         '''Creates the maxpooling layer. Computes maxpooling on each node
         # Parameters:
         input_convolutions: List of tensorflow nodes.
         # Returns:
         A list of tensorflow nodes. Each node 'i' computes the maxpooling of node 'i'
         '''
-        pooling = []
-        for conv in input_convolutions:
-            ksize = [1, conv.shape[1].value, 1, 1]
-            pooled = tf.nn.max_pool(
-                value=conv,
-                ksize=ksize,
-                strides=[1, 1, 1, 1],
-                padding='VALID')
+        return [
+            tf.reshape(
+                tensor = tf.nn.max_pool(
+                    value=t,
+                    ksize=[1, 1, t.shape[2], 1],
+                    strides=[1, 1, 1, 1],
+                    padding='VALID'),
+                shape = [-1, t.shape[3]]
+            )
+            for t in tensors
+        ]
 
-            pooling.append(pooled)
-
-        return pooling
-
-    def _create_concatenate_layer(self, input_poolings):
-        '''Creates the concatenation layer. Computes the concatenations of all tensors
-        # Parameters:
-        input_poolings: List of tensorflow nodes.
-        # Returns:
-        A tensorflow node that computes the concatenations of all tensors
-        '''
-        conc = tf.concat(
-            values=input_poolings,
-            axis=3)
-
-        return conc
-
-    def _create_flatten_layer(self, concatenate_input):
+    def _create_reshape_layer(self, tensors):
         '''Creates a flatten layer
         '''
-        num_filters_total = concatenate_input.shape[3].value
-        flat = tf.reshape(concatenate_input, [-1, num_filters_total])
-        return flat
+        return tf.concat(tensors, axis=1)
 
 
 if __name__ == '__main__':
@@ -148,6 +145,8 @@ if __name__ == '__main__':
         [i + 1 for i in range(sentence_length)]
     ]
 
-    model = KimConvolutionalModel(embedding)
+    model = KimConvolutionalModel([
+        (embedding, True), (embedding, False)
+    ])
     model(data)
     model.summary()
